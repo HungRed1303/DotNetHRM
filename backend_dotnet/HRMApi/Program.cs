@@ -3,56 +3,46 @@ using HRMApi.Repositories;
 using Microsoft.EntityFrameworkCore;
 using HRMApi.Services;
 using DotNetEnv;
-
-// Load environment variables from .env
-Env.Load();
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using HRMApi.BackgroundServices;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container
-builder.Services.AddControllers();
+// Load .env
+Env.Load();
 
-// Configure DbContext with PostgreSQL
+// ========== Fix JWT Claim Mapping ==========
+JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
+JwtSecurityTokenHandler.DefaultOutboundClaimTypeMap.Clear();
+
+// ========== Add Controllers ==========
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+        options.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
+    });
+
+// ========== Database ==========
 builder.Services.AddDbContext<HrmDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// Register Repositories
+// ========== Repository & Service ==========
 builder.Services.AddScoped<IEmployeeRepository, EmployeeRepository>();
 builder.Services.AddScoped<IPointRepository, PointRepository>();
-
-// Register Services
 builder.Services.AddScoped<IEmployeeService, EmployeeService>();
 builder.Services.AddScoped<IPointService, PointService>();
-
-// Configure AutoMapper
+builder.Services.AddScoped<IMonthlyPointRepository, MonthlyPointRepository>();
+builder.Services.AddScoped<IMonthlyPointService, MonthlyPointService>();
 builder.Services.AddAutoMapper(typeof(Program).Assembly);
 
-// Configure Swagger/OpenAPI
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(c =>
-{
-    c.SwaggerDoc("v1", new() 
-    { 
-        Title = "HRM API", 
-        Version = "v1",
-        Description = "API quản lý nhân sự - HR Management System",
-        Contact = new()
-        {
-            Name = "HR Team",
-            Email = "hr@company.com"
-        }
-    });
-    
-    // Enable XML comments if needed
-    var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
-    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
-    if (File.Exists(xmlPath))
-    {
-        c.IncludeXmlComments(xmlPath);
-    }
-});
-
-// Configure CORS
+// Register Background Services
+builder.Services.AddHostedService<MonthlyPointAllocationWorker>();
+// ========== CORS ==========
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
@@ -63,52 +53,112 @@ builder.Services.AddCors(options =>
     });
 });
 
-// Configure JSON options
-builder.Services.AddControllers()
-    .AddJsonOptions(options =>
+// ========== JWT Authentication ==========
+var jwtSecret = builder.Configuration["Jwt:Secret"] 
+                ?? "mysecret_nguyenchidanh_mysecret_nguyenchidanh";
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
     {
-        options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
-        options.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
-    });
+        ValidateIssuer = false,
+        ValidateAudience = false,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret)),
+        ClockSkew = TimeSpan.FromMinutes(5),
+        RoleClaimType = "role"
+    };
+
+    // LOG HẾT CLAIM ĐỂ DEBUG
+    options.Events = new JwtBearerEvents
+    {
+        OnTokenValidated = context =>
+        {
+            Console.WriteLine("================ TOKEN CLAIMS ================");
+            foreach (var claim in context.Principal.Claims)
+            {
+                Console.WriteLine($"{claim.Type} = {claim.Value}");
+            }
+            Console.WriteLine("==============================================");
+
+            return Task.CompletedTask;
+        }
+    };
+});
+
+
+// var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddAuthorization(options =>
+{
+    // Danh sách permission bạn muốn hỗ trợ
+    var permissions = new[]
+    {
+        "employee:create",
+        "employee:update",
+        "employee:delete",
+        "employee:list",
+        "employee:view",
+        "employee:statistics",
+
+        "department:create",
+        "department:update",
+        "department:view",
+        
+        "point:view",
+        "point:update",
+        "point:list"
+    };
+
+    foreach (var permission in permissions)
+    {
+        options.AddPolicy(permission, policy =>
+            policy.RequireClaim("permissions", permission));
+    }
+});
+
+// Swagger
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline
+// ========== Swagger ==========
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "HRM API V1");
-        c.RoutePrefix = "swagger";
-    });
+    app.UseSwaggerUI();
 }
 
 app.UseHttpsRedirection();
 
 app.UseCors("AllowAll");
 
+// ========== Authentication & Authorization ==========
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
 
-// Seed database nếu cần
+// ========== Optional: Ensure DB created ==========
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
     try
     {
         var context = services.GetRequiredService<HrmDbContext>();
-        // Kiểm tra và tạo database nếu chưa tồn tại
         context.Database.EnsureCreated();
-        
-        // Hoặc dùng migrations:
-        // context.Database.Migrate();
     }
     catch (Exception ex)
     {
         var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "An error occurred while migrating the database.");
+        logger.LogError(ex, "Error ensuring DB is created.");
     }
 }
 

@@ -25,6 +25,10 @@ public class HrmDbContext : DbContext
     public DbSet<Attendance> Attendances { get; set; }
     public DbSet<Request> Requests { get; set; }
     public DbSet<ApprovalHistory> ApprovalHistories { get; set; }
+    
+    // New DbSets for monthly point allocation
+    public DbSet<MonthlyPointRule> MonthlyPointRules { get; set; }
+    public DbSet<MonthlyPointAllocationHistory> MonthlyPointAllocationHistories { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -48,6 +52,8 @@ public class HrmDbContext : DbContext
         modelBuilder.Entity<Attendance>().ToTable("attendance");
         modelBuilder.Entity<Request>().ToTable("request");
         modelBuilder.Entity<ApprovalHistory>().ToTable("approval_history");
+        modelBuilder.Entity<MonthlyPointRule>().ToTable("monthly_point_rules");
+        modelBuilder.Entity<MonthlyPointAllocationHistory>().ToTable("monthly_point_allocation_history");
 
         // ============================================
         // COLUMN MAPPINGS
@@ -251,6 +257,31 @@ public class HrmDbContext : DbContext
             entity.Property(e => e.CreatedAt).HasColumnName("created_at");
         });
 
+        // MonthlyPointRule
+        modelBuilder.Entity<MonthlyPointRule>(entity =>
+        {
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.RoleId).HasColumnName("role_id");
+            entity.Property(e => e.PointValue).HasColumnName("point_value");
+            entity.Property(e => e.IsActive).HasColumnName("is_active");
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
+        });
+
+        // MonthlyPointAllocationHistory
+        modelBuilder.Entity<MonthlyPointAllocationHistory>(entity =>
+        {
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.ExecutionDate).HasColumnName("execution_date");
+            entity.Property(e => e.Year).HasColumnName("year");
+            entity.Property(e => e.Month).HasColumnName("month");
+            entity.Property(e => e.TotalEmployeesProcessed).HasColumnName("total_employees_processed");
+            entity.Property(e => e.TotalPointsAllocated).HasColumnName("total_points_allocated");
+            entity.Property(e => e.Status).HasColumnName("status");
+            entity.Property(e => e.ErrorMessage).HasColumnName("error_message");
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+        });
+
         // ============================================
         // RELATIONSHIPS
         // ============================================
@@ -378,6 +409,13 @@ public class HrmDbContext : DbContext
             .HasForeignKey(prt => prt.UserId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        // Configure MonthlyPointRule - Role relationship
+        modelBuilder.Entity<MonthlyPointRule>()
+            .HasOne(mpr => mpr.Role)
+            .WithMany()
+            .HasForeignKey(mpr => mpr.RoleId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         // ============================================
         // INDEXES & CONSTRAINTS
         // ============================================
@@ -400,6 +438,14 @@ public class HrmDbContext : DbContext
 
         modelBuilder.Entity<Attendance>()
             .HasIndex(a => new { a.EmployeeId, a.Date })
+            .IsUnique();
+
+        modelBuilder.Entity<MonthlyPointRule>()
+            .HasIndex(mpr => mpr.RoleId)
+            .IsUnique();
+
+        modelBuilder.Entity<MonthlyPointAllocationHistory>()
+            .HasIndex(mpah => new { mpah.Year, mpah.Month })
             .IsUnique();
     }
 }
