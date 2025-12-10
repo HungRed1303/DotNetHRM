@@ -1,11 +1,12 @@
 using HRMApi.DTOs;
 using HRMApi.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HRMApi.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/v1/[controller]")]
 public class PointController : ControllerBase
 {
     private readonly IPointService _pointService;
@@ -29,6 +30,7 @@ public class PointController : ControllerBase
     [HttpGet("employee/{employeeId}")]
     [ProducesResponseType(typeof(ApiResponse<EmployeePointDto>), 200)]
     [ProducesResponseType(404)]
+    [Authorize(Policy = "point:view")]
     public async Task<ActionResult<ApiResponse<EmployeePointDto>>> GetEmployeePoint(int employeeId)
     {
         try
@@ -56,6 +58,7 @@ public class PointController : ControllerBase
     /// </summary>
     [HttpGet]
     [ProducesResponseType(typeof(PagedResult<EmployeePointDto>), 200)]
+    [Authorize(Policy = "point:list")]
     public async Task<ActionResult<PagedResult<EmployeePointDto>>> GetAllEmployeePoints(
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10,
@@ -87,6 +90,7 @@ public class PointController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<EmployeePointDto>), 200)]
     [ProducesResponseType(400)]
     [ProducesResponseType(404)]
+    [Authorize(Policy = "point:update")]
     public async Task<ActionResult<ApiResponse<EmployeePointDto>>> UpdateEmployeePoint(
         int employeeId,
         [FromBody] UpdatePointDto dto)
@@ -135,6 +139,7 @@ public class PointController : ControllerBase
     /// </summary>
     [HttpGet("transactions")]
     [ProducesResponseType(typeof(PagedResult<PointTransactionDto>), 200)]
+    [Authorize(Policy = "point:view")]
     public async Task<ActionResult<PagedResult<PointTransactionDto>>> GetPointTransactions(
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10,

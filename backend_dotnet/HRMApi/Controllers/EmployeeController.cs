@@ -1,6 +1,8 @@
 using HRMApi.DTOs;
 using HRMApi.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace HRMApi.Controllers;
 
@@ -22,6 +24,9 @@ public class EmployeeController : ControllerBase
     /// <summary>
     /// Lấy danh sách nhân viên với phân trang và filter
     /// </summary>
+    // [Authorize(Roles = "admin, hr, manager")]
+    // [Authorize(Roles = "admin")] 
+    [Authorize(Policy = "employee:list")]
     [HttpGet]
     [ProducesResponseType(typeof(PagedResult<EmployeeListDto>), 200)]
     public async Task<ActionResult<PagedResult<EmployeeListDto>>> GetEmployees(
@@ -32,6 +37,10 @@ public class EmployeeController : ControllerBase
         [FromQuery] int? departmentId = null,
         [FromQuery] int? roleId = null)
     {
+        // Log toàn bộ claim để debug phân quyền
+        foreach (var claim in User.Claims)
+            Console.WriteLine($"{claim.Type}: {claim.Value}");
+
         try
         {
             if (pageNumber < 1) pageNumber = 1;
@@ -54,6 +63,7 @@ public class EmployeeController : ControllerBase
     /// <summary>
     /// Lấy thông tin chi tiết nhân viên theo ID
     /// </summary>
+    [Authorize(Policy = "employee:view")]
     [HttpGet("{id}")]
     [ProducesResponseType(typeof(ApiResponse<EmployeeDetailDto>), 200)]
     [ProducesResponseType(404)]
@@ -61,6 +71,21 @@ public class EmployeeController : ControllerBase
     {
         try
         {
+            var employeeIdClaim = User.Claims.FirstOrDefault(c => c.Type == "employeeId")?.Value;
+            var role = User.Claims.FirstOrDefault(c =>
+                c.Type == "role" ||
+                c.Type == ClaimTypes.Role ||
+                c.Type == "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
+            )?.Value;
+
+            // check
+            Console.WriteLine($"EmployeeId Claim: {employeeIdClaim}, Role: {role}");
+
+            if (role == "employee" && employeeIdClaim != id.ToString())
+            {
+                return Forbid(); // không cho phép truy cập hồ sơ của người khác
+            }
+
             var employee = await _employeeService.GetEmployeeByIdAsync(id);
 
             if (employee == null)
@@ -89,6 +114,7 @@ public class EmployeeController : ControllerBase
     [HttpPost]
     [ProducesResponseType(typeof(ApiResponse<EmployeeDetailDto>), 201)]
     [ProducesResponseType(400)]
+    [Authorize(Policy = "employee:create")]
     public async Task<ActionResult<ApiResponse<EmployeeDetailDto>>> CreateEmployee(
         [FromBody] CreateEmployeeDto dto)
     {
@@ -133,6 +159,7 @@ public class EmployeeController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<EmployeeDetailDto>), 200)]
     [ProducesResponseType(400)]
     [ProducesResponseType(404)]
+    [Authorize(Policy = "employee:update")]
     public async Task<ActionResult<ApiResponse<EmployeeDetailDto>>> UpdateEmployee(
         int id,
         [FromBody] UpdateEmployeeDto dto)
@@ -178,6 +205,7 @@ public class EmployeeController : ControllerBase
     [HttpDelete("{id}")]
     [ProducesResponseType(typeof(ApiResponse<bool>), 200)]
     [ProducesResponseType(404)]
+    [Authorize(Policy = "employee:delete")]
     public async Task<ActionResult<ApiResponse<bool>>> DeleteEmployee(int id)
     {
         try
@@ -251,6 +279,7 @@ public class EmployeeController : ControllerBase
     /// </summary>
     [HttpGet("statistics")]
     [ProducesResponseType(typeof(ApiResponse<object>), 200)]
+    [Authorize(Policy = "employee:statistics")]
     public async Task<ActionResult<ApiResponse<object>>> GetStatistics()
     {
         try
