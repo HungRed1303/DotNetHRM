@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Text.Json;
 
 namespace HRMApi.Models;
 
@@ -17,7 +18,7 @@ public partial class Participation
 
     public string? Status { get; set; }
 
-    public string? Result { get; set; }
+    public JsonDocument? Result { get; set; }
 
     public DateTime? CreatedAt { get; set; }
 

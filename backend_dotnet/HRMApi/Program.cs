@@ -128,7 +128,8 @@ builder.Services.AddAuthorization(options =>
 
         // Participate
         "participate:list",
-        "participate:view"
+        "participate:view",
+        "participate:update"
     };
 
     foreach (var permission in permissions)
