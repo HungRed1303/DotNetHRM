@@ -221,6 +221,7 @@ public class HrmDbContext : DbContext
             entity.Property(e => e.RegisterDeadline).HasColumnName("register_deadline");
             entity.Property(e => e.MaxParticipants).HasColumnName("max_participants");
             entity.Property(e => e.Status).HasColumnName("status");
+            entity.Property(e => e.ActivityType).HasColumnName("activity_type");
             entity.Property(e => e.CreatedBy).HasColumnName("created_by");
             entity.Property(e => e.CreatedAt).HasColumnName("created_at");
             entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");

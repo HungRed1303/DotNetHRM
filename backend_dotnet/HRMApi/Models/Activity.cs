@@ -21,6 +21,8 @@ public partial class Activity
 
     public string? Status { get; set; }
 
+    public string? ActivityType { get; set; }
+
     public int? CreatedBy { get; set; }
 
     public DateTime? CreatedAt { get; set; }

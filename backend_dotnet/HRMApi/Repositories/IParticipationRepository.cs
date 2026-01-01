@@ -14,7 +14,7 @@ public interface IParticipationRepository
         int pageSize,
         string? searchTerm = null);
 
-    // NEW: Methods for JSONB support
+    // JSONB support methods
     Task UpdateAsync(Participation participation);
     Task<IEnumerable<Participation>> GetByActivityTypeAsync(string activityType);
     Task<IEnumerable<Participation>> GetWithResultsAsync();
@@ -27,4 +27,11 @@ public interface IParticipationRepository
         string sortKey, 
         int limit = 10);
     Task<Dictionary<string, int>> GetResultStatsByActivityTypeAsync(string activityType);
+    
+    // Additional specialized query methods
+    Task<IEnumerable<Participation>> GetRunningResultsUnderTimeAsync(string maxTime);
+    Task<IEnumerable<Participation>> GetTrainingResultsAboveScoreAsync(int minScore);
+    Task<Dictionary<int, double>> GetVolunteerHoursByEmployeeAsync();
+    Task<IEnumerable<Participation>> GetCertifiedEmployeesAsync();
+    Task<IEnumerable<Participation>> SearchInResultsAsync(string searchTerm);
 }
