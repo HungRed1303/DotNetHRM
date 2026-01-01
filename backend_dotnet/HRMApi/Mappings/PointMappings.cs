@@ -21,7 +21,7 @@ public class PointMappingProfile : Profile
 
         // PointConversionRule -> PointConversionRuleDto
         CreateMap<PointConversionRule, PointConversionRuleDto>()
-            .ForMember(dest => dest.UpdatedByName, opt => opt.MapFrom(src => 
+            .ForMember(dest => dest.UpdatedByName, opt => opt.MapFrom(src =>
                 src.UpdatedByNavigation != null ? src.UpdatedByNavigation.Fullname : null))
             .ForMember(dest => dest.IsActive, opt => opt.MapFrom(src => src.IsActive ?? false));
 

@@ -3,6 +3,7 @@ using HRMApi.Data;
 using HRMApi.DTOs;
 using HRMApi.Models;
 using HRMApi.Repositories;
+using Microsoft.EntityFrameworkCore;
 
 namespace HRMApi.Services;
 
@@ -383,6 +384,9 @@ public class PointService : IPointService
     // POINT TO MONEY CONVERSION
     // ============================================
     
+// backend_dotnet/HRMApi/Services/PointService.cs
+// ... existing code ...
+
     public async Task<ApiResponse<PointToMoneyHistoryDto>> RequestPointToMoneyConversionAsync(
         int employeeId, 
         RequestPointToMoneyDto dto)
@@ -398,6 +402,17 @@ public class PointService : IPointService
                 return ApiResponse<PointToMoneyHistoryDto>.ErrorResponse(
                     "Không tìm thấy nhân viên",
                     new List<string> { $"Nhân viên với ID {employeeId} không tồn tại" });
+            }
+
+            // *** THÊM: Kiểm tra có request pending không ***
+            var hasPendingRequest = await _context.PointToMoneyHistories
+                .AnyAsync(h => h.EmployeeId == employeeId && h.Status == "pending");
+            
+            if (hasPendingRequest)
+            {
+                return ApiResponse<PointToMoneyHistoryDto>.ErrorResponse(
+                    "Không thể gửi yêu cầu",
+                    new List<string> { "Bạn đang có yêu cầu quy đổi chờ xử lý. Vui lòng đợi admin xử lý trước khi gửi yêu cầu mới." });
             }
 
             // Get employee point

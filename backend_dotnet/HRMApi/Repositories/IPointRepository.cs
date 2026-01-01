@@ -8,11 +8,11 @@ public interface IPointRepository
     Task<Point?> GetByEmployeeIdAsync(int employeeId);
     Task<IEnumerable<Point>> GetAllAsync();
     Task<(IEnumerable<Point> items, int totalCount)> GetPagedAsync(
-        int pageNumber, 
+        int pageNumber,
         int pageSize,
         string? searchTerm = null);
     Task UpdateAsync(Point point);
-    
+
     // Point Transaction History
     Task<PointTransactionHistory> AddTransactionAsync(PointTransactionHistory transaction);
     Task<IEnumerable<PointTransactionHistory>> GetTransactionsByEmployeeIdAsync(
@@ -25,14 +25,14 @@ public interface IPointRepository
         string? type = null,
         DateTime? fromDate = null,
         DateTime? toDate = null);
-    
+
     // Point Conversion Rules
     Task<PointConversionRule?> GetActiveConversionRuleAsync();
     Task<IEnumerable<PointConversionRule>> GetAllConversionRulesAsync();
     Task<PointConversionRule> AddConversionRuleAsync(PointConversionRule rule);
     Task UpdateConversionRuleAsync(PointConversionRule rule);
     Task<PointConversionRule?> GetConversionRuleByIdAsync(int id);
-    
+
     // Point to Money History
     Task<PointToMoneyHistory> AddPointToMoneyHistoryAsync(PointToMoneyHistory history);
     Task<PointToMoneyHistory?> GetPointToMoneyHistoryByIdAsync(int id);
@@ -42,7 +42,7 @@ public interface IPointRepository
         int pageSize,
         int? employeeId = null,
         string? status = null);
-    
+
     // Statistics
     Task<int> GetTotalEmployeesWithPointsAsync();
     Task<long> GetTotalPointsInSystemAsync();

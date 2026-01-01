@@ -7,7 +7,6 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
 using HRMApi.BackgroundServices;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -38,10 +37,13 @@ builder.Services.AddScoped<IEmployeeService, EmployeeService>();
 builder.Services.AddScoped<IPointService, PointService>();
 builder.Services.AddScoped<IMonthlyPointRepository, MonthlyPointRepository>();
 builder.Services.AddScoped<IMonthlyPointService, MonthlyPointService>();
+builder.Services.AddScoped<IParticipationRepository, ParticipationRepository>();
+builder.Services.AddScoped<IParticipationService, ParticipationService>();
 builder.Services.AddAutoMapper(typeof(Program).Assembly);
 
 // Register Background Services
 builder.Services.AddHostedService<MonthlyPointAllocationWorker>();
+
 // ========== CORS ==========
 builder.Services.AddCors(options =>
 {
@@ -54,7 +56,7 @@ builder.Services.AddCors(options =>
 });
 
 // ========== JWT Authentication ==========
-var jwtSecret = builder.Configuration["Jwt:Secret"] 
+var jwtSecret = builder.Configuration["Jwt:Secret"]
                 ?? "mysecret_nguyenchidanh_mysecret_nguyenchidanh";
 
 builder.Services.AddAuthentication(options =>
@@ -92,14 +94,13 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-
-// var builder = WebApplication.CreateBuilder(args);
-
+// ========== Authorization Policies ==========
 builder.Services.AddAuthorization(options =>
 {
     // Danh sách permission bạn muốn hỗ trợ
     var permissions = new[]
     {
+        // Employee permissions
         "employee:create",
         "employee:update",
         "employee:delete",
@@ -107,13 +108,27 @@ builder.Services.AddAuthorization(options =>
         "employee:view",
         "employee:statistics",
 
+        // Department permissions
         "department:create",
         "department:update",
         "department:view",
         
+        // Point permissions
         "point:view",
         "point:update",
-        "point:list"
+        "point:list",
+        
+        // Monthly Point permissions
+        "monthly-point:view",
+        "monthly-point:create",
+        "monthly-point:update",
+        "monthly-point:delete",
+        "monthly-point:allocate",
+        "monthly-point:history",
+
+        // Participate
+        "participate:list",
+        "participate:view"
     };
 
     foreach (var permission in permissions)

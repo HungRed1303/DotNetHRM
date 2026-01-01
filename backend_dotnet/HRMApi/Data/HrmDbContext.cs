@@ -1,5 +1,6 @@
 using HRMApi.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace HRMApi.Data;
 
@@ -25,14 +26,38 @@ public class HrmDbContext : DbContext
     public DbSet<Attendance> Attendances { get; set; }
     public DbSet<Request> Requests { get; set; }
     public DbSet<ApprovalHistory> ApprovalHistories { get; set; }
-    
-    // New DbSets for monthly point allocation
     public DbSet<MonthlyPointRule> MonthlyPointRules { get; set; }
     public DbSet<MonthlyPointAllocationHistory> MonthlyPointAllocationHistories { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+        
+        // ============================================
+        // DATETIME UTC CONVERTER - FIX POSTGRESQL ISSUE
+        // ============================================
+        var dateTimeConverter = new ValueConverter<DateTime, DateTime>(
+            v => v.ToUniversalTime(),
+            v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
+
+        var nullableDateTimeConverter = new ValueConverter<DateTime?, DateTime?>(
+            v => v.HasValue ? v.Value.ToUniversalTime() : v,
+            v => v.HasValue ? DateTime.SpecifyKind(v.Value, DateTimeKind.Utc) : v);
+
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            foreach (var property in entityType.GetProperties())
+            {
+                if (property.ClrType == typeof(DateTime))
+                {
+                    property.SetValueConverter(dateTimeConverter);
+                }
+                else if (property.ClrType == typeof(DateTime?))
+                {
+                    property.SetValueConverter(nullableDateTimeConverter);
+                }
+            }
+        }
         
         // ============================================
         // TABLE MAPPINGS
@@ -210,8 +235,12 @@ public class HrmDbContext : DbContext
             entity.Property(e => e.RegisterDate).HasColumnName("register_date");
             entity.Property(e => e.CancelDate).HasColumnName("cancel_date");
             entity.Property(e => e.Status).HasColumnName("status");
-            entity.Property(e => e.Result).HasColumnName("result");
             entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+            
+            // Configure JSONB column
+            entity.Property(e => e.Result)
+                .HasColumnName("result")
+                .HasColumnType("jsonb");
         });
 
         // Attendance
