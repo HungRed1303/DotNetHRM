@@ -218,13 +218,24 @@ public class HrmDbContext : DbContext
             entity.Property(e => e.Description).HasColumnName("description");
             entity.Property(e => e.StartDate).HasColumnName("start_date");
             entity.Property(e => e.EndDate).HasColumnName("end_date");
-            entity.Property(e => e.RegisterDeadline).HasColumnName("register_deadline");
+            
+            entity.Property(e => e.RegistrationStartDate).HasColumnName("registration_start_date");
+            entity.Property(e => e.RegistrationEndDate).HasColumnName("registration_end_date");
+            
             entity.Property(e => e.MaxParticipants).HasColumnName("max_participants");
+            
+            entity.Property(e => e.Location).HasColumnName("location");
+            entity.Property(e => e.ImageUrl).HasColumnName("image_url");
+            entity.Property(e => e.Organizer).HasColumnName("organizer");
+            entity.Property(e => e.Points).HasColumnName("points");
+            
             entity.Property(e => e.Status).HasColumnName("status");
             entity.Property(e => e.ActivityType).HasColumnName("activity_type");
             entity.Property(e => e.CreatedBy).HasColumnName("created_by");
             entity.Property(e => e.CreatedAt).HasColumnName("created_at");
             entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
+            
+            entity.Property(e => e.IsDeleted).HasColumnName("is_deleted");
         });
 
         // Participation

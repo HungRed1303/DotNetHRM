@@ -102,3 +102,38 @@ public class TeamBuildingResultDto
     public string? Note { get; set; }
 }
 
+public class UpdateAttendanceStatusDto
+{
+    [Required(ErrorMessage = "Trạng thái điểm danh là bắt buộc")]
+    [RegularExpression(@"^(attended|absent)$", 
+        ErrorMessage = "Trạng thái phải là: attended (có mặt) hoặc absent (vắng mặt)")]
+    public string Status { get; set; } = null!;
+    
+    public string? Note { get; set; }
+}
+
+// Batch attendance DTOs
+public class BatchUpdateAttendanceDto
+{
+    [Required]
+    public List<AttendanceItemDto> Attendances { get; set; } = new();
+}
+
+public class AttendanceItemDto
+{
+    [Required]
+    public int EmployeeId { get; set; }
+    
+    [Required]
+    [RegularExpression(@"^(attended|absent)$")]
+    public string Status { get; set; } = null!;
+    
+    public string? Note { get; set; }
+}
+
+public class BatchAttendanceResultDto
+{
+    public int SuccessCount { get; set; }
+    public int FailCount { get; set; }
+    public List<string> Errors { get; set; } = new();
+}

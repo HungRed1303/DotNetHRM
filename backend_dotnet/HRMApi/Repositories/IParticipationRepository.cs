@@ -34,4 +34,5 @@ public interface IParticipationRepository
     Task<Dictionary<int, double>> GetVolunteerHoursByEmployeeAsync();
     Task<IEnumerable<Participation>> GetCertifiedEmployeesAsync();
     Task<IEnumerable<Participation>> SearchInResultsAsync(string searchTerm);
+    Task<Participation?> GetByActivityIdEmployeeIdForAttendanceAsync(int activityId, int employeeId);
 }

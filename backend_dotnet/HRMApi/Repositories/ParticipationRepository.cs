@@ -234,6 +234,19 @@ public class ParticipationRepository : IParticipationRepository
         return stats;
     }
 
+    /// <summary>
+    /// Get participation for attendance update (lighter query)
+    /// </summary>
+    public async Task<Participation?> GetByActivityIdEmployeeIdForAttendanceAsync(
+        int activityId, 
+        int employeeId)
+    {
+        return await _context.Participations
+            .Include(p => p.Activity)
+            .Include(p => p.Employee)
+            .Where(p => p.ActivityId == activityId && p.EmployeeId == employeeId)
+            .FirstOrDefaultAsync();
+    }
     // ============================================
     // ADVANCED QUERY EXAMPLES
     // ============================================

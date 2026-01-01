@@ -514,4 +514,85 @@ public class ParticipationService : IParticipationService
                 new List<string> { ex.Message });
         }
     }
+
+    /// <summary>
+    /// Update attendance status (điểm danh)
+    /// </summary>
+    public async Task<ApiResponse<ParticipationDto>> UpdateAttendanceStatusAsync(
+        int activityId,
+        int employeeId,
+        UpdateAttendanceStatusDto dto)
+    {
+        try
+        {
+            var participation = await _participationRepository
+                .GetByActivityIdEmployeeIdForAttendanceAsync(activityId, employeeId);
+
+            if (participation == null)
+            {
+                return ApiResponse<ParticipationDto>.ErrorResponse(
+                    "Không tìm thấy thông tin đăng ký",
+                    new List<string> { "Nhân viên chưa đăng ký hoạt động này" });
+            }
+
+            // Validate current status
+            if (participation.Status == "cancelled")
+            {
+                return ApiResponse<ParticipationDto>.ErrorResponse(
+                    "Không thể điểm danh",
+                    new List<string> { "Không thể điểm danh cho đăng ký đã bị hủy" });
+            }
+
+            // Check if activity has started
+            if (participation.Activity.StartDate > DateTime.UtcNow)
+            {
+                return ApiResponse<ParticipationDto>.ErrorResponse(
+                    "Chưa thể điểm danh",
+                    new List<string> { "Hoạt động chưa bắt đầu" });
+            }
+
+            // Check if already has this status
+            if (participation.Status == dto.Status)
+            {
+                return ApiResponse<ParticipationDto>.ErrorResponse(
+                    "Trạng thái không thay đổi",
+                    new List<string> { $"Nhân viên đã được đánh dấu là '{dto.Status}' rồi" });
+            }
+
+            // Update status
+            var oldStatus = participation.Status;
+            participation.Status = dto.Status;
+
+            // If marking as absent, clear any existing result
+            if (dto.Status == "absent")
+            {
+                participation.Result = null;
+            }
+
+            await _participationRepository.UpdateAsync(participation);
+
+            // Reload with full details
+            var updatedParticipation = await _participationRepository
+                .GetByActivityIdEmployeeIdAsync(activityId, employeeId);
+            
+            var resultDto = _mapper.Map<ParticipationDto>(updatedParticipation);
+
+            _logger.LogInformation(
+                "Attendance updated: Activity {ActivityId}, Employee {EmployeeId}, {OldStatus} → {NewStatus}",
+                activityId, employeeId, oldStatus, dto.Status);
+
+            return ApiResponse<ParticipationDto>.SuccessResponse(
+                resultDto,
+                $"Điểm danh thành công: {(dto.Status == "attended" ? "Có mặt" : "Vắng mặt")}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, 
+                "Error updating attendance for Activity {ActivityId}, Employee {EmployeeId}", 
+                activityId, employeeId);
+            return ApiResponse<ParticipationDto>.ErrorResponse(
+                "Lỗi khi điểm danh",
+                new List<string> { ex.Message });
+        }
+    }
 }

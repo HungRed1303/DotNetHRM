@@ -15,19 +15,31 @@ public partial class Activity
 
     public DateTime EndDate { get; set; }
 
-    public DateTime RegisterDeadline { get; set; }
+    public DateTime RegistrationStartDate { get; set; }
+
+    public DateTime RegistrationEndDate { get; set; }
 
     public int? MaxParticipants { get; set; }
 
-    public string? Status { get; set; }
+    public string? Location { get; set; }
 
     public string? ActivityType { get; set; }
+
+    public string? ImageUrl { get; set; }
+
+    public string? Organizer { get; set; }
+
+    public int? Points { get; set; }
+
+    public string? Status { get; set; }
 
     public int? CreatedBy { get; set; }
 
     public DateTime? CreatedAt { get; set; }
 
     public DateTime? UpdatedAt { get; set; }
+
+    public bool? IsDeleted { get; set; }
 
     public virtual Employee? CreatedByNavigation { get; set; }
 

@@ -26,4 +26,9 @@ public interface IParticipationService
     Task<ApiResponse<List<ParticipationDto>>> SearchInResultsAsync(string searchTerm);
     Task<ApiResponse<List<ParticipationDto>>> GetByResultKeyAsync(string key);
     Task<ApiResponse<List<ParticipationDto>>> GetByResultValueAsync(string key, object value);
+
+    Task<ApiResponse<ParticipationDto>> UpdateAttendanceStatusAsync(
+        int activityId, 
+        int employeeId, 
+        UpdateAttendanceStatusDto dto);
 }
