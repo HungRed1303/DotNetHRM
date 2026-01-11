@@ -29,7 +29,7 @@ public interface IPointService
         int? limit = null);
     
     // Point Conversion Rules
-    Task<ApiResponse<PointConversionRuleDto>> GetActiveConversionRuleAsync();
+    Task<ApiResponse<List<PointConversionRuleDto>>> GetActiveConversionRuleAsync();
     Task<List<PointConversionRuleDto>> GetAllConversionRulesAsync();
     Task<ApiResponse<PointConversionRuleDto>> CreateConversionRuleAsync(
         UpsertPointConversionRuleDto dto);

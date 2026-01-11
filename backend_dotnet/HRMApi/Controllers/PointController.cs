@@ -202,9 +202,9 @@ public class PointController : ControllerBase
     /// Lấy quy tắc quy đổi điểm đang hoạt động
     /// </summary>
     [HttpGet("conversion-rules/active")]
-    [ProducesResponseType(typeof(ApiResponse<PointConversionRuleDto>), 200)]
+    [ProducesResponseType(typeof(ApiResponse<List<PointConversionRuleDto>>), 200)]
     [ProducesResponseType(404)]
-    public async Task<ActionResult<ApiResponse<PointConversionRuleDto>>> GetActiveConversionRule()
+    public async Task<ActionResult<ApiResponse<List<PointConversionRuleDto>>>> GetActiveConversionRule()
     {
         try
         {

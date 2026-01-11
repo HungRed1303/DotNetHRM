@@ -151,14 +151,14 @@ public class PointRepository : IPointRepository
     // ============================================
     // POINT CONVERSION RULES
     // ============================================
-    
-    public async Task<PointConversionRule?> GetActiveConversionRuleAsync()
+
+    public async Task<IEnumerable<PointConversionRule>> GetActiveConversionRulesAsync()
     {
         return await _context.PointConversionRules
             .Include(r => r.UpdatedByNavigation)
             .Where(r => r.IsActive == true)
             .OrderByDescending(r => r.UpdatedAt)
-            .FirstOrDefaultAsync();
+            .ToListAsync();
     }
 
     public async Task<IEnumerable<PointConversionRule>> GetAllConversionRulesAsync()

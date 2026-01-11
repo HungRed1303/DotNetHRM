@@ -37,8 +37,12 @@ builder.Services.AddScoped<IEmployeeService, EmployeeService>();
 builder.Services.AddScoped<IPointService, PointService>();
 builder.Services.AddScoped<IMonthlyPointRepository, MonthlyPointRepository>();
 builder.Services.AddScoped<IMonthlyPointService, MonthlyPointService>();
+builder.Services.AddScoped<IDepartmentRepository, DepartmentRepository>();
+builder.Services.AddScoped<IDepartmentService, DepartmentService>();
 builder.Services.AddScoped<IParticipationRepository, ParticipationRepository>();
 builder.Services.AddScoped<IParticipationService, ParticipationService>();
+builder.Services.AddScoped<IActivityRepository, ActivityRepository>();
+builder.Services.AddScoped<IActivityService, ActivityService>();
 builder.Services.AddAutoMapper(typeof(Program).Assembly);
 
 // Register Background Services

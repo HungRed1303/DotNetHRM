@@ -33,6 +33,8 @@ public partial class Employee
 
     public int? DepartmentId { get; set; }
 
+    public int? ManagerId { get; set; }
+
     public DateTime? CreatedAt { get; set; }
 
     public DateTime? UpdatedAt { get; set; }
@@ -46,6 +48,8 @@ public partial class Employee
     public virtual Department? Department { get; set; }
 
     public virtual ICollection<Department> Departments { get; set; } = new List<Department>();
+
+    public virtual Employee? Manager { get; set; }
 
     public virtual ICollection<Participation> Participations { get; set; } = new List<Participation>();
 

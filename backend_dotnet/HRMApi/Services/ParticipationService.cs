@@ -12,6 +12,7 @@ public class ParticipationService : IParticipationService
 {
     private readonly IParticipationRepository _participationRepository;
     private readonly IEmployeeRepository _employeeRepository;
+    private readonly IPointRepository _pointRepository;
     private readonly HrmDbContext _context;
     private readonly IMapper _mapper;
     private readonly ILogger<ParticipationService> _logger;
@@ -19,12 +20,14 @@ public class ParticipationService : IParticipationService
     public ParticipationService(
         IParticipationRepository participationRepository,
         IEmployeeRepository employeeRepository,
+        IPointRepository pointRepository,
         HrmDbContext context,
         IMapper mapper,
         ILogger<ParticipationService> logger)
     {
         _participationRepository = participationRepository;
         _employeeRepository = employeeRepository;
+        _pointRepository = pointRepository;
         _context = context;
         _mapper = mapper;
         _logger = logger;
@@ -516,15 +519,18 @@ public class ParticipationService : IParticipationService
     }
 
     /// <summary>
-    /// Update attendance status (điểm danh)
+    /// Update attendance status (điểm danh) - TỰ ĐỘNG CỘNG ĐIỂM
     /// </summary>
     public async Task<ApiResponse<ParticipationDto>> UpdateAttendanceStatusAsync(
         int activityId,
         int employeeId,
         UpdateAttendanceStatusDto dto)
     {
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+        
         try
         {
+            // 1. Lấy participation với full details
             var participation = await _participationRepository
                 .GetByActivityIdEmployeeIdForAttendanceAsync(activityId, employeeId);
 
@@ -535,7 +541,7 @@ public class ParticipationService : IParticipationService
                     new List<string> { "Nhân viên chưa đăng ký hoạt động này" });
             }
 
-            // Validate current status
+            // 2. Validate current status
             if (participation.Status == "cancelled")
             {
                 return ApiResponse<ParticipationDto>.ErrorResponse(
@@ -543,7 +549,7 @@ public class ParticipationService : IParticipationService
                     new List<string> { "Không thể điểm danh cho đăng ký đã bị hủy" });
             }
 
-            // Check if activity has started
+            // 3. Check if activity has started
             if (participation.Activity.StartDate > DateTime.UtcNow)
             {
                 return ApiResponse<ParticipationDto>.ErrorResponse(
@@ -551,19 +557,74 @@ public class ParticipationService : IParticipationService
                     new List<string> { "Hoạt động chưa bắt đầu" });
             }
 
-            // Check if already has this status
-            if (participation.Status == dto.Status)
+            // 4. Kiểm tra trạng thái hiện tại
+            var oldStatus = participation.Status;
+            var isChangingToAttended = dto.Status == "attended" && oldStatus != "attended";
+            
+            // Không cho phép điểm danh lại nếu đã attended
+            if (oldStatus == "attended" && dto.Status == "attended")
             {
                 return ApiResponse<ParticipationDto>.ErrorResponse(
-                    "Trạng thái không thay đổi",
-                    new List<string> { $"Nhân viên đã được đánh dấu là '{dto.Status}' rồi" });
+                    "Đã điểm danh",
+                    new List<string> { "Nhân viên đã được điểm danh 'Có mặt' rồi" });
             }
 
-            // Update status
-            var oldStatus = participation.Status;
+            // 5. ⭐ LOGIC CỘNG ĐIỂM: Chỉ cộng khi chuyển sang "attended"
+            int? pointsToAdd = null;
+            string pointMessage = "";
+
+            if (isChangingToAttended)
+            {
+                // Kiểm tra activity có điểm không
+                if (participation.Activity.Points.HasValue && participation.Activity.Points.Value > 0)
+                {
+                    pointsToAdd = participation.Activity.Points.Value;
+                    
+                    // Lấy thông tin điểm của employee
+                    var employeePoint = await _pointRepository.GetByEmployeeIdAsync(employeeId);
+                    
+                    if (employeePoint == null)
+                    {
+                        // Tạo point record mới nếu chưa có
+                        employeePoint = new Point
+                        {
+                            EmployeeId = employeeId,
+                            PointTotal = 0,
+                            LastUpdate = DateTime.UtcNow
+                        };
+                        await _context.Points.AddAsync(employeePoint);
+                        await _context.SaveChangesAsync();
+                    }
+
+                    // Cộng điểm
+                    employeePoint.PointTotal = (employeePoint.PointTotal ?? 0) + pointsToAdd.Value;
+                    employeePoint.LastUpdate = DateTime.UtcNow;
+                    await _pointRepository.UpdateAsync(employeePoint);
+
+                    // Tạo transaction history
+                    var pointTransaction = new PointTransactionHistory
+                    {
+                        EmployeeId = employeeId,
+                        Value = pointsToAdd.Value,
+                        Type = "earn",
+                        ActorId = null, // TODO: Lấy từ authenticated user
+                        Description = $"Điểm danh tham gia hoạt động: {participation.Activity.Name}",
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    await _pointRepository.AddTransactionAsync(pointTransaction);
+
+                    pointMessage = $" và đã cộng {pointsToAdd.Value} điểm";
+                    
+                    _logger.LogInformation(
+                        "Points awarded: Employee {EmployeeId} received {Points} points for Activity {ActivityId}",
+                        employeeId, pointsToAdd.Value, activityId);
+                }
+            }
+
+            // 6. Update participation status
             participation.Status = dto.Status;
 
-            // If marking as absent, clear any existing result
+            // Nếu marking as absent, xóa result (nếu có)
             if (dto.Status == "absent")
             {
                 participation.Result = null;
@@ -571,7 +632,10 @@ public class ParticipationService : IParticipationService
 
             await _participationRepository.UpdateAsync(participation);
 
-            // Reload with full details
+            // 7. Commit transaction
+            await transaction.CommitAsync();
+
+            // 8. Reload with full details để return
             var updatedParticipation = await _participationRepository
                 .GetByActivityIdEmployeeIdAsync(activityId, employeeId);
             
@@ -581,12 +645,17 @@ public class ParticipationService : IParticipationService
                 "Attendance updated: Activity {ActivityId}, Employee {EmployeeId}, {OldStatus} → {NewStatus}",
                 activityId, employeeId, oldStatus, dto.Status);
 
+            var successMessage = dto.Status == "attended" 
+                ? $"Điểm danh thành công: Có mặt{pointMessage}"
+                : "Điểm danh thành công: Vắng mặt";
+
             return ApiResponse<ParticipationDto>.SuccessResponse(
                 resultDto,
-                $"Điểm danh thành công: {(dto.Status == "attended" ? "Có mặt" : "Vắng mặt")}");
+                successMessage);
         }
         catch (Exception ex)
         {
+            await transaction.RollbackAsync();
             _logger.LogError(ex, 
                 "Error updating attendance for Activity {ActivityId}, Employee {EmployeeId}", 
                 activityId, employeeId);

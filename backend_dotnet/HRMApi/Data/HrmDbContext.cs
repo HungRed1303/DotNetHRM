@@ -120,6 +120,7 @@ public class HrmDbContext : DbContext
             entity.Property(e => e.Email).HasColumnName("email");
             entity.Property(e => e.RoleId).HasColumnName("role_id");
             entity.Property(e => e.DepartmentId).HasColumnName("department_id");
+            entity.Property(e => e.ManagerId).HasColumnName("manager_id");
             entity.Property(e => e.CreatedAt).HasColumnName("created_at");
             entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
         });
@@ -247,6 +248,7 @@ public class HrmDbContext : DbContext
             entity.Property(e => e.RegisterDate).HasColumnName("register_date");
             entity.Property(e => e.CancelDate).HasColumnName("cancel_date");
             entity.Property(e => e.Status).HasColumnName("status");
+            entity.Property(e => e.Performance).HasColumnName("performance");
             entity.Property(e => e.CreatedAt).HasColumnName("created_at");
             
             // Configure JSONB column
@@ -455,6 +457,13 @@ public class HrmDbContext : DbContext
             .HasOne(mpr => mpr.Role)
             .WithMany()
             .HasForeignKey(mpr => mpr.RoleId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Configure Employee - Manager relationship
+        modelBuilder.Entity<Employee>()
+            .HasOne(e => e.Manager)
+            .WithMany()
+            .HasForeignKey(e => e.ManagerId)
             .OnDelete(DeleteBehavior.Restrict);
 
         // ============================================

@@ -203,6 +203,9 @@ public class EmployeeService : IEmployeeService
             }
 
             // Map updates
+            Console.WriteLine($"Mapping DTO to Employee entity for ID {dto.Email}");
+            Console.WriteLine($"Before Mapping: {employee.Fullname}, {employee.Email}, {employee.DepartmentId}");
+
             _mapper.Map(dto, employee);
             employee.UpdatedAt = DateTime.UtcNow;
 

@@ -176,7 +176,7 @@ public class EmployeeController : ControllerBase
                 return BadRequest(ApiResponse<EmployeeDetailDto>.ErrorResponse(
                     "Dữ liệu không hợp lệ", errors));
             }
-
+            Console.WriteLine("Email: " + dto.Email);
             var result = await _employeeService.UpdateEmployeeAsync(id, dto);
 
             if (!result.Success)

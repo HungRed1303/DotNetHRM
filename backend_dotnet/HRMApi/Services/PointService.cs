@@ -241,28 +241,30 @@ public class PointService : IPointService
     // POINT CONVERSION RULES
     // ============================================
     
-    public async Task<ApiResponse<PointConversionRuleDto>> GetActiveConversionRuleAsync()
+    public async Task<ApiResponse<List<PointConversionRuleDto>>> GetActiveConversionRuleAsync()
     {
         try
         {
-            var rule = await _pointRepository.GetActiveConversionRuleAsync();
+            // Gọi hàm repository (trả về IEnumerable)
+            var rules = await _pointRepository.GetActiveConversionRulesAsync();
             
-            if (rule == null)
+            // Nếu null hoặc rỗng
+            if (rules == null || !rules.Any())
             {
-                return ApiResponse<PointConversionRuleDto>.ErrorResponse(
+                return ApiResponse<List<PointConversionRuleDto>>.ErrorResponse(
                     "Không tìm thấy quy tắc quy đổi",
                     new List<string> { "Chưa có quy tắc quy đổi điểm nào được kích hoạt" });
             }
 
-            var dto = _mapper.Map<PointConversionRuleDto>(rule);
+            var dtos = _mapper.Map<List<PointConversionRuleDto>>(rules);
             
-            return ApiResponse<PointConversionRuleDto>.SuccessResponse(
-                dto,
-                "Lấy quy tắc quy đổi thành công");
+            return ApiResponse<List<PointConversionRuleDto>>.SuccessResponse(
+                dtos,
+                "Lấy danh sách quy tắc quy đổi thành công");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting active conversion rule");
+            _logger.LogError(ex, "Error getting active conversion rules");
             throw;
         }
     }
@@ -395,7 +397,8 @@ public class PointService : IPointService
         
         try
         {
-            // Validate employee exists
+            // 1. VALIDATION CƠ BẢN
+            // Kiểm tra nhân viên tồn tại
             var employeeExists = await _employeeRepository.ExistsAsync(employeeId);
             if (!employeeExists)
             {
@@ -404,7 +407,15 @@ public class PointService : IPointService
                     new List<string> { $"Nhân viên với ID {employeeId} không tồn tại" });
             }
 
-            // *** THÊM: Kiểm tra có request pending không ***
+            // [MỚI] Kiểm tra bội số của 100
+            if (dto.PointRequested % 100 != 0)
+            {
+                return ApiResponse<PointToMoneyHistoryDto>.ErrorResponse(
+                    "Điểm không hợp lệ",
+                    new List<string> { "Số điểm muốn đổi phải là bội số của 100 (Ví dụ: 100, 200, 500...)" });
+            }
+
+            // Kiểm tra có request nào đang pending không
             var hasPendingRequest = await _context.PointToMoneyHistories
                 .AnyAsync(h => h.EmployeeId == employeeId && h.Status == "pending");
             
@@ -412,31 +423,49 @@ public class PointService : IPointService
             {
                 return ApiResponse<PointToMoneyHistoryDto>.ErrorResponse(
                     "Không thể gửi yêu cầu",
-                    new List<string> { "Bạn đang có yêu cầu quy đổi chờ xử lý. Vui lòng đợi admin xử lý trước khi gửi yêu cầu mới." });
+                    new List<string> { "Bạn đang có yêu cầu chờ xử lý. Vui lòng đợi admin duyệt trước." });
             }
 
-            // Get employee point
+            // 2. KIỂM TRA SỐ DƯ ĐIỂM
             var point = await _pointRepository.GetByEmployeeIdAsync(employeeId);
             if (point == null || (point.PointTotal ?? 0) < dto.PointRequested)
             {
                 return ApiResponse<PointToMoneyHistoryDto>.ErrorResponse(
                     "Điểm không đủ",
-                    new List<string> { "Số điểm hiện có không đủ để quy đổi" });
+                    new List<string> { $"Bạn chỉ có {point?.PointTotal ?? 0} điểm, không đủ để đổi {dto.PointRequested} điểm." });
             }
 
-            // Get active conversion rule
-            var rule = await _pointRepository.GetActiveConversionRuleAsync();
-            if (rule == null)
+            // 3. TÌM QUY TẮC QUY ĐỔI PHÙ HỢP NHẤT
+            // Lấy tất cả rule đang active (cần sửa Repository trả về List như hướng dẫn trước)
+            var activeRules = await _pointRepository.GetActiveConversionRulesAsync();
+
+            if (activeRules == null || !activeRules.Any())
             {
                 return ApiResponse<PointToMoneyHistoryDto>.ErrorResponse(
-                    "Không thể quy đổi",
-                    new List<string> { "Hiện tại chưa có quy tắc quy đổi điểm" });
+                    "Lỗi hệ thống",
+                    new List<string> { "Chưa có quy tắc quy đổi điểm nào được cấu hình." });
             }
 
-            // Calculate money
-            decimal moneyReceived = (decimal)dto.PointRequested / rule.PointValue * rule.MoneyValue;
+            // Tìm rule có mốc điểm cao nhất mà số điểm yêu cầu thỏa mãn (<= PointRequested)
+            // Ví dụ: Đổi 600 điểm. Có mốc 500 và 100. Sẽ chọn mốc 500 để tính tỉ giá.
+            var matchedRule = activeRules
+                .Where(r => r.PointValue <= dto.PointRequested)
+                .OrderByDescending(r => r.PointValue)
+                .FirstOrDefault();
 
-            // Create conversion request
+            if (matchedRule == null)
+            {
+                return ApiResponse<PointToMoneyHistoryDto>.ErrorResponse(
+                    "Chưa đủ điểm tối thiểu",
+                    new List<string> { $"Số điểm tối thiểu để quy đổi là {activeRules.Min(r => r.PointValue)} điểm." });
+            }
+
+            // 4. TÍNH TIỀN
+            // Công thức: (Điểm yêu cầu / Mốc điểm rule) * Giá tiền rule
+            // Lưu ý ép kiểu (decimal) để tránh phép chia số nguyên bị làm tròn sai
+            decimal moneyReceived = ((decimal)dto.PointRequested / matchedRule.PointValue) * matchedRule.MoneyValue;
+
+            // 5. LƯU VÀO DB
             var history = new PointToMoneyHistory
             {
                 EmployeeId = employeeId,
@@ -449,7 +478,7 @@ public class PointService : IPointService
             var createdHistory = await _pointRepository.AddPointToMoneyHistoryAsync(history);
             await transaction.CommitAsync();
 
-            // Get history with details
+            // 6. TRẢ KẾT QUẢ
             var historyWithDetails = await _pointRepository.GetPointToMoneyHistoryByIdAsync(createdHistory.Id);
             var resultDto = _mapper.Map<PointToMoneyHistoryDto>(historyWithDetails);
 

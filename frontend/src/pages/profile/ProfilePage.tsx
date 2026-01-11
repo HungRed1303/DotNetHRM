@@ -1,117 +1,76 @@
-import React, { useState } from "react";
 import { useParams } from "react-router-dom";
-
-import Card from "../../components/profile/ProfileCard";
-import InfoGrid from "../../components/profile/InfoGrid";
-import Field from "../../components/profile/Field";
-import SecureRow from "../../components/profile/SecureField";
-import ProfileSidebar from "../../components/profile/ProfileSidebar";
-import ProfileSkeleton from "../../components/profile/ProfileSkeleton";
-
-import { HiOutlineUser, HiOutlineMail, HiOutlinePhone, HiOutlineLocationMarker,
-         HiOutlineOfficeBuilding, HiOutlineCalendar } from "react-icons/hi";
-
-import { THEME_COLORS } from "../../components/common/THEME_COLORS";
 import { useEmployeeProfile } from "../../hooks/useEmployeeProfile";
-
-const fdate = (v?: string | number | Date) =>
-  v ? new Date(v).toLocaleDateString("vi-VN") : "-";
+import { useSecureFieldToggle } from "../../hooks/useSecureFieldToggle";
+import { useUpdateEmployeeInfo } from "../../hooks/useUpdateEmployeeInfo";
+import type { UpdateEmployeeFormData } from "../../hooks/useUpdateEmployeeInfo";
+import ProfileLayout from "../../layouts/ProfileLayout";
+import ProfileContent from "../../components/profile/ProfileContent";
+import ProfileSkeleton from "../../components/profile/ProfileSkeleton";
+import UpdateEmployeePersonalInformation from "../../components/profile/UpdateProfileEmployee";
+import { useState } from "react";
 
 export default function ProfilePage() {
   const { id } = useParams();
-  const { data, loading, err } = useEmployeeProfile(id);
-  const [show, setShow] = useState<Record<string, boolean>>({});
+  const { data, loading, err, refetch } = useEmployeeProfile(id);
+  const { toggle, isVisible } = useSecureFieldToggle();
 
-  if (loading)
+  const { handleUpdateSubmit, isSubmitting } = useUpdateEmployeeInfo();
+
+  const [showUpdateForm, setShowUpdateForm] = useState(false);
+
+  const onSubmitAndRefresh = async (formData: UpdateEmployeeFormData) => {
+  await handleUpdateSubmit(formData);
+  await refetch();
+  setShowUpdateForm(false);
+};
+
+  // console.log("Employee Data:", data);
+
+  // Loading state
+  if (loading) {
     return (
-      <div className="min-h-screen p-10 bg-gray-50">
-        <ProfileSkeleton />
-      </div>
+      <ProfileLayout>
+        <div className="flex-1 flex items-center justify-center">
+          <ProfileSkeleton />
+        </div>
+      </ProfileLayout>
     );
+  }
 
-  if (err || !data)
+  // Error state
+  if (err || !data) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-gray-700">
-        {err}
-      </div>
+      <ProfileLayout>
+        <div className="flex-1 flex items-center justify-center">
+          {err || "Không tìm thấy dữ liệu"}
+        </div>
+      </ProfileLayout>
     );
+  }
 
+  // Success state
   return (
-    <div
-      className="min-h-screen p-10 font-sans text-gray-900"
-      style={{ backgroundColor: THEME_COLORS.secondary[50] }}
-    >
-      <div className="max-w-7xl mx-auto flex gap-10">
-        <ProfileSidebar data={data} />
+    <ProfileLayout>
+      <ProfileContent
+        data={data}
+        showCccd={isVisible("cccd")}
+        showBank={isVisible("bank")}
+        showTax={isVisible("tax")}
+        onToggleCccd={() => toggle("cccd")}
+        onToggleBank={() => toggle("bank")}
+        onToggleTax={() => toggle("tax")}
+        onUpdateClick={() => setShowUpdateForm(true)}
+      />
 
-        <section className="flex-1 flex flex-col gap-8">
-          {/* Thông tin cơ bản */}
-          <Card title="Thông tin cơ bản" icon={<HiOutlineUser />}>
-            <InfoGrid>
-              <Field label="Mã nhân viên" icon={<HiOutlineUser />}>
-                {data.employeeCode}
-              </Field>
-
-              <Field label="Email" icon={<HiOutlineMail />}>
-                {data.email}
-              </Field>
-
-              <Field label="Số điện thoại" icon={<HiOutlinePhone />}>
-                {data.phone}
-              </Field>
-
-              <Field label="Địa chỉ" icon={<HiOutlineLocationMarker />}>
-                {data.address}
-              </Field>
-            </InfoGrid>
-          </Card>
-
-          {/* Bảo mật */}
-          <Card title="Bảo mật" icon={<HiOutlineUser />}>
-            <InfoGrid>
-              <SecureRow
-                label="Số CCCD"
-                value={data.citizenId}
-                show={!!show.cccd}
-                onToggle={() => setShow((p) => ({ ...p, cccd: !p.cccd }))}
-              />
-
-              <SecureRow
-                label="Mã số thuế"
-                value={data.taxCode}
-                show={!!show.tax}
-                onToggle={() => setShow((p) => ({ ...p, tax: !p.tax }))}
-              />
-
-              {data.bankAccount && (
-                <SecureRow
-                  label="Tài khoản ngân hàng"
-                  value={data.bankAccount.accountNumber}
-                  show={!!show.bank}
-                  onToggle={() => setShow((p) => ({ ...p, bank: !p.bank }))}
-                />
-              )}
-            </InfoGrid>
-          </Card>
-
-          {/* Công việc */}
-          <Card title="Công việc" icon={<HiOutlineOfficeBuilding />}>
-            <InfoGrid>
-              <Field label="Phòng ban">{data.department}</Field>
-
-              <Field label="Chức vụ">{data.position}</Field>
-
-              <Field label="Ngày vào làm" icon={<HiOutlineCalendar />}>
-                {fdate(data.joinDate)}
-              </Field>
-
-              <Field label="Ngày sinh" icon={<HiOutlineCalendar />}>
-                {fdate(data.birthDate)}
-              </Field>
-            </InfoGrid>
-          </Card>
-        </section>
-      </div>
-    </div>
+      {showUpdateForm && (
+        <UpdateEmployeePersonalInformation
+          employeeId={Number(data.id)}
+          isOpen={showUpdateForm}
+          onClose={() => setShowUpdateForm(false)}
+          onSubmit={onSubmitAndRefresh}
+          isSubmitting={isSubmitting}
+        />
+      )}
+    </ProfileLayout>
   );
 }

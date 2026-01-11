@@ -1,15 +1,10 @@
-import axios from "axios";
+import { apiSpring } from "./api";
 import type { LoginRequest, LoginResponse } from "../types/auth";
-
-const API_PORT_SPRING = "8080";
-const API_PORT_SPRING_v2 = import.meta.env.VITE_API_PORT_SPRING;
-const url = `http://localhost:${API_PORT_SPRING_v2}/api/v1/auth/login`;
-// const url = `http://localhost:${API_PORT_SPRING}/api/v1/auth/login`;
-// syntax axios for call apI: axios.post<Response Type>(url, body)
+import axios from "axios";
 
 export async function login(body: LoginRequest): Promise<LoginResponse> {
   try {
-    const response = await axios.post<LoginResponse>(url, body);
+    const response = await apiSpring.post<LoginResponse>('/auth/login', body);
 
     console.log("check reponse from call api /auth/login: ", response);
     console.log(
@@ -29,11 +24,9 @@ export async function login(body: LoginRequest): Promise<LoginResponse> {
 }
 
 export async function logout(refreshToken: string): Promise<void> {
-  const url = `http://localhost:${API_PORT_SPRING_v2}/api/v1/auth/logout`;
-
   try {
     if (refreshToken) {
-      await axios.post(url, null, {
+      await apiSpring.post('/v1/auth/logout', null, {
         headers: {
           Authorization: `Bearer ${refreshToken}`,
         },
@@ -44,6 +37,5 @@ export async function logout(refreshToken: string): Promise<void> {
   }
   finally{
     localStorage.clear();
-    window.location.reload();
   }
 }

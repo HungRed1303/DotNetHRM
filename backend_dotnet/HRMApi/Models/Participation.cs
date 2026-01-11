@@ -18,6 +18,8 @@ public partial class Participation
 
     public string? Status { get; set; }
 
+    public string? Performance { get; set; }
+
     public JsonDocument? Result { get; set; }
 
     public DateTime? CreatedAt { get; set; }

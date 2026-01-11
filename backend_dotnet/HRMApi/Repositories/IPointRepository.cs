@@ -27,7 +27,7 @@ public interface IPointRepository
         DateTime? toDate = null);
 
     // Point Conversion Rules
-    Task<PointConversionRule?> GetActiveConversionRuleAsync();
+    Task<IEnumerable<PointConversionRule>> GetActiveConversionRulesAsync();
     Task<IEnumerable<PointConversionRule>> GetAllConversionRulesAsync();
     Task<PointConversionRule> AddConversionRuleAsync(PointConversionRule rule);
     Task UpdateConversionRuleAsync(PointConversionRule rule);
